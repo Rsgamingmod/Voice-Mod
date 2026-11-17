@@ -1,0 +1,203 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Voice Clone Studio</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#090d18;color:white;
+ font-family:Arial,sans-serif;
+}
+header{
+ padding:22px;text-align:center;
+ background:#111a2d;border-bottom:1px solid #26334e;
+}
+header h1{margin:0;color:#7c9cff;font-size:27px}
+header p{color:#aab7d1;font-size:13px}
+.container{max-width:650px;margin:25px auto;padding:15px}
+.card{
+ background:#121c30;padding:22px;border-radius:17px;
+ border:1px solid #293957;margin-bottom:18px;
+}
+h2{font-size:19px;margin-top:0}
+label{display:block;margin:15px 0 8px;color:#cbd5e1}
+input,textarea{
+ width:100%;padding:14px;border-radius:9px;
+ border:1px solid #344563;background:#0b1323;
+ color:white;font-size:15px;
+}
+textarea{height:130px;resize:vertical}
+button{
+ width:100%;padding:15px;border:0;border-radius:10px;
+ background:linear-gradient(90deg,#5865f2,#a044ff);
+ color:white;font-size:16px;font-weight:bold;
+ margin-top:15px;cursor:pointer;
+}
+button:disabled{opacity:.5}
+button.secondary{background:#263958}
+.status{color:#a8b8d5;font-size:14px;margin-top:12px}
+audio{width:100%;margin-top:15px}
+.small{font-size:12px;color:#93a4c3;line-height:1.6}
+#download{display:none;text-align:center;color:#8fb4ff;margin-top:15px}
+footer{text-align:center;color:#8290aa;padding:20px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+<h1>🎙️ AI VOICE CLONE</h1>
+<p>Upload • Clone • Generate • Download</p>
+</header>
+
+<div class="container">
+
+<div class="card">
+<h2>01. Upload Your Voice</h2>
+<label>Voice Name</label>
+<input id="voiceName" placeholder="My Voice">
+
+<label>Select Audio (MP3 / WAV / M4A)</label>
+<input id="audioFile" type="file"
+accept="audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/*">
+
+<p class="small">
+Upload only your own voice or a voice you have permission to clone.
+Clear audio of around 1–2 minutes is recommended.
+</p>
+
+<button id="cloneBtn" onclick="cloneVoice()">CLONE MY VOICE</button>
+<div class="status" id="cloneStatus">No voice uploaded yet.</div>
+</div>
+
+<div class="card">
+<h2>02. Generate Speech</h2>
+
+<label>Your Voice</label>
+<input id="voiceId" placeholder="Clone your voice first" readonly>
+
+<label>Enter Your Dialogue</label>
+<textarea id="textInput" placeholder="Type what you want your cloned voice to speak..."></textarea>
+
+<button id="generateBtn" onclick="generateSpeech()">GENERATE VOICE</button>
+
+<div class="status" id="generateStatus"></div>
+
+<audio id="audioPlayer" controls style="display:none"></audio>
+
+<a id="download" download="my-cloned-voice.mp3">
+DOWNLOAD MP3
+</a>
+</div>
+
+<div class="card">
+<h2>03. Voice Settings</h2>
+<label>Voice Speed</label>
+<input type="range" id="speed" min="0.7" max="1.2" step="0.1" value="1">
+<p class="small">Adjust the speaking speed.</p>
+</div>
+
+</div>
+
+<footer>AI VOICE CLONE STUDIO | Powered by ElevenLabs</footer>
+
+<script>
+/* REPLACE THIS WITH YOUR BACKEND URL */
+const API_URL = "https://YOUR-BACKEND-URL.onrender.com";
+
+const voiceBox = document.getElementById("voiceId");
+const savedVoice = localStorage.getItem("my_voice_id");
+
+if(savedVoice) voiceBox.value = savedVoice;
+
+async function cloneVoice(){
+ const file = document.getElementById("audioFile").files[0];
+ const name = document.getElementById("voiceName").value.trim();
+
+ if(!file){alert("Please upload your voice audio.");return;}
+ if(!name){alert("Please enter voice name.");return;}
+
+ if(file.size > 25*1024*1024){
+   alert("Audio file must be below 25 MB.");return;
+ }
+
+ const btn=document.getElementById("cloneBtn");
+ const status=document.getElementById("cloneStatus");
+
+ btn.disabled=true;
+ status.textContent="Uploading and cloning your voice...";
+
+ try{
+   const form=new FormData();
+   form.append("audio",file);
+   form.append("name",name);
+
+   const response=await fetch(API_URL+"/api/clone",{
+     method:"POST",body:form
+   });
+
+   const data=await response.json();
+   if(!response.ok) throw new Error(data.error || "Clone failed");
+
+   localStorage.setItem("my_voice_id",data.voice_id);
+   voiceBox.value=data.voice_id;
+   status.textContent="✅ Your voice has been cloned successfully!";
+ }catch(error){
+   status.textContent="❌ "+error.message;
+ }finally{
+   btn.disabled=false;
+ }
+}
+
+async function generateSpeech(){
+ const voice_id=localStorage.getItem("my_voice_id");
+ const text=document.getElementById("textInput").value.trim();
+
+ if(!voice_id){alert("Clone your voice first.");return;}
+ if(!text){alert("Enter your dialogue.");return;}
+
+ const btn=document.getElementById("generateBtn");
+ const status=document.getElementById("generateStatus");
+
+ btn.disabled=true;
+ status.textContent="Generating your voice...";
+
+ try{
+   const response=await fetch(API_URL+"/api/speech",{
+     method:"POST",
+     headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({
+       voice_id,
+       text,
+       speed:Number(document.getElementById("speed").value)
+     })
+   });
+
+   if(!response.ok){
+     const error=await response.json();
+     throw new Error(error.error || "Generation failed");
+   }
+
+   const blob=await response.blob();
+   const url=URL.createObjectURL(blob);
+
+   const player=document.getElementById("audioPlayer");
+   player.src=url;
+   player.style.display="block";
+
+   const download=document.getElementById("download");
+   download.href=url;
+   download.style.display="block";
+
+   status.textContent="✅ Voice generated successfully!";
+ }catch(error){
+   status.textContent="❌ "+error.message;
+ }finally{
+   btn.disabled=false;
+ }
+}
+</script>
+</body>
+</html>
