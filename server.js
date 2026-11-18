@@ -46,11 +46,10 @@ app.post("/api/clone", upload.single("audio"), async (req, res) => {
 
     const form = new FormData();
 
-    form.append(
-      "files[]",
-      new Blob([req.file.buffer], { type: req.file.mimetype }),
-      req.file.originalname
-    );
+    form.append("files",
+  new Blob([req.file.buffer], { type: req.file.mimetype }),
+  req.file.originalname
+);
 
     form.append("name", name);
 
